@@ -91,13 +91,13 @@ uv pip install --pre --index-url https://packagefeedproxy.microsoft.io/pypi/simp
 The agent host starts on `http://localhost:8088`. In another terminal:
 
 ```bash
-curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d "{\"input\": \"What are the steps to prepare data before Oracle to PGSQL migration?\"}"
+curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d "{\"input\": \"Can customer get refund if the delivery is returned due to wrong address?\"}"
 ```
 
 Or in PowerShell:
 
 ```powershell
-(Invoke-WebRequest -Uri http://localhost:8088/responses -Method POST -ContentType "application/json" -Body '{"input": "What are the steps to prepare data before Oracle to PGSQL migration?"}').Content
+(Invoke-WebRequest -Uri http://localhost:8088/responses -Method POST -ContentType "application/json" -Body '{"input": "Can customer get refund if the delivery is returned due to wrong address?"}').Content
 ```
 
 ## Project layout
@@ -120,7 +120,7 @@ azd-generated, not hand-authored:
 
 ```bash
 azd ai agent run
-azd ai agent invoke --local "What are the steps to prepare data before Oracle to PGSQL migration?"
+azd ai agent invoke --local "Can customer get refund if the delivery is returned due to wrong address?"
 ```
 
 ## Deploying to Foundry

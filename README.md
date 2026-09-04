@@ -10,10 +10,10 @@ multi-hop retrieval over the Knowledge Base automatically before every model
 invocation and injects the results into context, then the model answers and cites
 sources.
 
-- Knowledge Base: `<KNOWLEDGE_BASE_NAME>` on the `aiservices426nsearch` Azure AI
+- Knowledge Base: `<KNOWLEDGE_BASE_NAME>` on the `<AZURE_SEARCH_SERVICE_NAME>` Azure AI
   Search service (its knowledge source is `azureBlob`-backed, not a plain index — see
   [Known issue / patch](#known-issue--patch) below)
-- Foundry project: `<FOUNDRY_PROJECT_NAME>` (on `aiservices426n`), model deployment `gpt-4.1`
+- Foundry project: `<FOUNDRY_PROJECT_NAME>` (on `<FOUNDRY_ACCOUNT_NAME>`), model deployment `gpt-4.1`
 - Auth: keyless, via `DefaultAzureCredential` everywhere (no API keys in this project)
 
 See [main.py](main.py) for the implementation.
@@ -27,8 +27,8 @@ See [main.py](main.py) for the implementation.
 
 ## Status: deployed and working
 
-- **Live endpoint**: `https://aiservices426n.services.ai.azure.com/api/projects/<FOUNDRY_PROJECT_NAME>/agents/agent-framework-agent-knowledge-base-responses/endpoint/protocols/openai/responses?api-version=v1`
-- **Playground**: `https://ai.azure.com/nextgen/r/8m2XfUpORbO0qGjSaMRIUg,rg-3iqdemo,,aiservices426n,<FOUNDRY_PROJECT_NAME>/build/agents/agent-framework-agent-knowledge-base-responses/build`
+- **Live endpoint**: `https://<FOUNDRY_ACCOUNT_NAME>.services.ai.azure.com/api/projects/<FOUNDRY_PROJECT_NAME>/agents/agent-framework-agent-knowledge-base-responses/endpoint/protocols/openai/responses?api-version=v1`
+- **Playground**: `https://ai.azure.com/nextgen/r/8m2XfUpORbO0qGjSaMRIUg,<AZURE_RESOURCE_GROUP>,,<FOUNDRY_ACCOUNT_NAME>,<FOUNDRY_PROJECT_NAME>/build/agents/agent-framework-agent-knowledge-base-responses/build`
 - Deployed via `azd deploy` as agent version 2, verified end-to-end with a live query
   returning `"status":"completed"` and a grounded, cited answer.
 
@@ -65,7 +65,7 @@ been filed against `agent-framework-azure-ai-search`.
   account/tenant — if `azd ai agent` commands fail with a subscription/tenant lookup
   error, re-run `azd auth login --tenant-id <tenant>` explicitly.
 - **RBAC**: both your user account and the deployed agent's Managed Identity need, on
-  `aiservices426nsearch`:
+  `<AZURE_SEARCH_SERVICE_NAME>`:
   - `Search Index Data Reader` (document-level query access)
   - `Search Service Contributor` (needed to read the Knowledge Base/knowledge-source
     *definitions* — there's no narrower built-in role for that read in Azure AI Search's
@@ -131,7 +131,7 @@ azd deploy
 ```
 
 This builds the container, pushes it to the project's Azure Container Registry
-(`acr426n` was already present in `rg-3iqdemo`, but `azd ai agent init --infra`
+(`<AZURE_CONTAINER_REGISTRY_NAME>` was already present in `<AZURE_RESOURCE_GROUP>`, but `azd ai agent init --infra`
 provisions its own dedicated one rather than reusing an existing registry), and deploys
 a new agent version. The platform injects `FOUNDRY_PROJECT_ENDPOINT`,
 `AZURE_AI_MODEL_DEPLOYMENT_NAME`, and `APPLICATIONINSIGHTS_CONNECTION_STRING`
@@ -146,6 +146,6 @@ azd ai agent monitor
 ```
 
 The deployed agent's Managed Identity needs the RBAC roles listed under
-[Prerequisites](#prerequisites) on `aiservices426nsearch` — grant them once per new
+[Prerequisites](#prerequisites) on `<AZURE_SEARCH_SERVICE_NAME>` — grant them once per new
 agent version's identity if `azd ai agent show` reports a new `Instance Identity
 Principal ID`.

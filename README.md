@@ -10,18 +10,25 @@ multi-hop retrieval over the Knowledge Base automatically before every model
 invocation and injects the results into context, then the model answers and cites
 sources.
 
-- Knowledge Base: `knowledgebase-1783457487321` on the `aiservices426nsearch` Azure AI
+- Knowledge Base: `<KNOWLEDGE_BASE_NAME>` on the `aiservices426nsearch` Azure AI
   Search service (its knowledge source is `azureBlob`-backed, not a plain index — see
   [Known issue / patch](#known-issue--patch) below)
-- Foundry project: `3iqproject426n` (on `aiservices426n`), model deployment `gpt-4.1`
+- Foundry project: `<FOUNDRY_PROJECT_NAME>` (on `aiservices426n`), model deployment `gpt-4.1`
 - Auth: keyless, via `DefaultAzureCredential` everywhere (no API keys in this project)
 
 See [main.py](main.py) for the implementation.
 
+> **Identifiers masked in this repo**: the Foundry tenant ID, Foundry project name, and
+> Knowledge Base/knowledge-source names in this README and in `azure.yaml` are replaced
+> with `<PLACEHOLDER>` tokens. Real values live only in the local, gitignored `.env` /
+> `.azure/` files — never committed. To actually run or deploy this project, fill those
+> placeholders (and `.env`, from `.env.example`) with your own tenant/project/Knowledge
+> Base identifiers.
+
 ## Status: deployed and working
 
-- **Live endpoint**: `https://aiservices426n.services.ai.azure.com/api/projects/3iqproject426n/agents/agent-framework-agent-knowledge-base-responses/endpoint/protocols/openai/responses?api-version=v1`
-- **Playground**: `https://ai.azure.com/nextgen/r/8m2XfUpORbO0qGjSaMRIUg,rg-3iqdemo,,aiservices426n,3iqproject426n/build/agents/agent-framework-agent-knowledge-base-responses/build`
+- **Live endpoint**: `https://aiservices426n.services.ai.azure.com/api/projects/<FOUNDRY_PROJECT_NAME>/agents/agent-framework-agent-knowledge-base-responses/endpoint/protocols/openai/responses?api-version=v1`
+- **Playground**: `https://ai.azure.com/nextgen/r/8m2XfUpORbO0qGjSaMRIUg,rg-3iqdemo,,aiservices426n,<FOUNDRY_PROJECT_NAME>/build/agents/agent-framework-agent-knowledge-base-responses/build`
 - Deployed via `azd deploy` as agent version 2, verified end-to-end with a live query
   returning `"status":"completed"` and a grounded, cited answer.
 
@@ -34,7 +41,7 @@ Base, regardless of that source's actual `kind`. This Knowledge Base's source is
 
 ```
 (InvalidRequestParameter) Knowledge source params kind 'searchIndex' does not match
-the kind 'azureBlob' of knowledge source 'knowledgesource-1783457394250'.
+the kind 'azureBlob' of knowledge source '<KNOWLEDGE_SOURCE_NAME>'.
 ```
 
 [`knowledge_source_patch.py`](knowledge_source_patch.py) works around this: it resolves
@@ -52,7 +59,7 @@ been filed against `agent-framework-azure-ai-search`.
   ```bash
   winget upgrade Microsoft.Azd
   azd extension upgrade azure.ai.agents
-  azd auth login --tenant-id 92197871-8fd6-4a6c-8a1b-e9f3406b16de
+  azd auth login --tenant-id <AZURE_TENANT_ID>
   ```
   `azd auth login` is a **separate** login from `az login` and can end up on a different
   account/tenant — if `azd ai agent` commands fail with a subscription/tenant lookup
@@ -103,7 +110,8 @@ azd-generated, not hand-authored:
 - `knowledge_source_patch.py` — the workaround described above
 - `requirements.txt`, `Dockerfile`, `.dockerignore`
 - `azure.yaml` — azd project/service definition (services: the Foundry project
-  connection `3iqproject426n`, and the hosted agent `agent-framework-agent-knowledge-base-responses`)
+  connection `foundry-project` (Foundry project name masked — see `azure.yaml`), and the
+  hosted agent `agent-framework-agent-knowledge-base-responses`)
 - `infra/` — generated Bicep (`azd ai agent init --infra`): container registry + Foundry
   project wiring
 - `.env` / `.env.example` — local-run configuration

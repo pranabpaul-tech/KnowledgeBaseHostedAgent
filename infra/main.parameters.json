@@ -1,0 +1,35 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "connectionCredentials": {
+      "value": {}
+    },
+    "connections": {
+      "value": []
+    },
+    "deployments": {
+      "value": []
+    },
+    "location": {
+      "value": "${AZURE_LOCATION}"
+    },
+    "projectEndpoint": {
+      "value": "${FOUNDRY_PROJECT_ENDPOINT}"
+    },
+    "projectResourceId": {
+      "value": "${AZURE_AI_PROJECT_ID}"
+    },
+    "resourceGroupName": {
+      "value": "${AZURE_FOUNDRY_RESOURCE_GROUP=rg-${AZURE_ENV_NAME}-foundry}"
+    },
+    "resourceTokenSalt": {
+      "value": "${AZD_RESOURCE_TOKEN_SALT}"
+    },
+    "tags": {
+      "value": {
+        "azd-env-name": "${AZURE_ENV_NAME}"
+      }
+    }
+  }
+}

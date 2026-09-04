@@ -1,0 +1,143 @@
+# Knowledge Base Hosted Agent
+
+An [Agent Framework](https://github.com/microsoft/agent-framework) agent grounded in an
+existing **Foundry IQ Knowledge Base** backed by Azure AI Search, deployed as a
+**Microsoft Foundry Hosted Agent** using the **Responses protocol**.
+
+Unlike a hosted *tool* (which the model must decide to call), this agent uses
+`AzureAISearchContextProvider` in **agentic mode** as a context provider: it runs
+multi-hop retrieval over the Knowledge Base automatically before every model
+invocation and injects the results into context, then the model answers and cites
+sources.
+
+- Knowledge Base: `knowledgebase-1783457487321` on the `aiservices426nsearch` Azure AI
+  Search service (its knowledge source is `azureBlob`-backed, not a plain index — see
+  [Known issue / patch](#known-issue--patch) below)
+- Foundry project: `3iqproject426n` (on `aiservices426n`), model deployment `gpt-4.1`
+- Auth: keyless, via `DefaultAzureCredential` everywhere (no API keys in this project)
+
+See [main.py](main.py) for the implementation.
+
+## Status: deployed and working
+
+- **Live endpoint**: `https://aiservices426n.services.ai.azure.com/api/projects/3iqproject426n/agents/agent-framework-agent-knowledge-base-responses/endpoint/protocols/openai/responses?api-version=v1`
+- **Playground**: `https://ai.azure.com/nextgen/r/8m2XfUpORbO0qGjSaMRIUg,rg-3iqdemo,,aiservices426n,3iqproject426n/build/agents/agent-framework-agent-knowledge-base-responses/build`
+- Deployed via `azd deploy` as agent version 2, verified end-to-end with a live query
+  returning `"status":"completed"` and a grounded, cited answer.
+
+## Known issue / patch
+
+`agent_framework_azure_ai_search`'s `AzureAISearchContextProvider` (agentic mode)
+hardcodes `SearchIndexKnowledgeSourceParams` for every knowledge source in a Knowledge
+Base, regardless of that source's actual `kind`. This Knowledge Base's source is
+`azureBlob`-kind, so the unpatched library fails with:
+
+```
+(InvalidRequestParameter) Knowledge source params kind 'searchIndex' does not match
+the kind 'azureBlob' of knowledge source 'knowledgesource-1783457394250'.
+```
+
+[`knowledge_source_patch.py`](knowledge_source_patch.py) works around this: it resolves
+each knowledge source's real `kind` via `SearchIndexClient.get_knowledge_source()`, then
+builds the matching `KnowledgeSourceParams` subclass using the SDK's own discriminator
+registry (`KnowledgeSourceParams.__mapping__`) instead of the hardcoded search-index
+variant. `main.py` applies it (`knowledge_source_patch.apply()`) before constructing the
+provider. Remove this once the upstream library fixes the kind mismatch — feedback has
+been filed against `agent-framework-azure-ai-search`.
+
+## Prerequisites
+
+- Azure CLI, logged in: `az login`
+- Azure Developer CLI (`azd`) 1.33.0+ and the `azure.ai.agents` extension (`1.0.0-beta.13`+):
+  ```bash
+  winget upgrade Microsoft.Azd
+  azd extension upgrade azure.ai.agents
+  azd auth login --tenant-id 92197871-8fd6-4a6c-8a1b-e9f3406b16de
+  ```
+  `azd auth login` is a **separate** login from `az login` and can end up on a different
+  account/tenant — if `azd ai agent` commands fail with a subscription/tenant lookup
+  error, re-run `azd auth login --tenant-id <tenant>` explicitly.
+- **RBAC**: both your user account and the deployed agent's Managed Identity need, on
+  `aiservices426nsearch`:
+  - `Search Index Data Reader` (document-level query access)
+  - `Search Service Contributor` (needed to read the Knowledge Base/knowledge-source
+    *definitions* — there's no narrower built-in role for that read in Azure AI Search's
+    RBAC model; this matches the role set already granted to the Foundry project's own
+    identity)
+- If you're behind a corporate network that blocks direct `pip`/`uv` access to
+  `files.pythonhosted.org` (TLS handshake failures), route through your internal package
+  feed proxy — this project's [Dockerfile](Dockerfile) already does this via
+  `--index-url https://packagefeedproxy.microsoft.io/pypi/simple/`. Adjust or remove that
+  flag if you're not on this network.
+- Git Bash on Windows: prefix `azd` commands that take a `/subscriptions/...` resource ID
+  with `MSYS_NO_PATHCONV=1` — otherwise Git Bash silently rewrites the leading `/` into a
+  Windows path (e.g. `C:/Program Files/Git/subscriptions/...`) and `azd` rejects it.
+
+## Running locally (plain Python, fastest to verify)
+
+```bash
+uv venv .venv
+uv pip install --pre --index-url https://packagefeedproxy.microsoft.io/pypi/simple/ -r requirements.txt
+.venv\Scripts\python main.py
+```
+
+The agent host starts on `http://localhost:8088`. In another terminal:
+
+```bash
+curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d "{\"input\": \"What are the steps to prepare data before Oracle to PGSQL migration?\"}"
+```
+
+Or in PowerShell:
+
+```powershell
+(Invoke-WebRequest -Uri http://localhost:8088/responses -Method POST -ContentType "application/json" -Body '{"input": "What are the steps to prepare data before Oracle to PGSQL migration?"}').Content
+```
+
+## Project layout
+
+This is a real `azd` project (`azd ai agent init` was run against it, targeting the
+existing Foundry project via `--project-id`) — `azure.yaml` and `infra/` are
+azd-generated, not hand-authored:
+
+- `main.py` — the agent
+- `knowledge_source_patch.py` — the workaround described above
+- `requirements.txt`, `Dockerfile`, `.dockerignore`
+- `azure.yaml` — azd project/service definition (services: the Foundry project
+  connection `3iqproject426n`, and the hosted agent `agent-framework-agent-knowledge-base-responses`)
+- `infra/` — generated Bicep (`azd ai agent init --infra`): container registry + Foundry
+  project wiring
+- `.env` / `.env.example` — local-run configuration
+
+## Running locally via `azd`
+
+```bash
+azd ai agent run
+azd ai agent invoke --local "What are the steps to prepare data before Oracle to PGSQL migration?"
+```
+
+## Deploying to Foundry
+
+```bash
+azd provision   # only needed once, to create the ACR (already done for this project)
+azd deploy
+```
+
+This builds the container, pushes it to the project's Azure Container Registry
+(`acr426n` was already present in `rg-3iqdemo`, but `azd ai agent init --infra`
+provisions its own dedicated one rather than reusing an existing registry), and deploys
+a new agent version. The platform injects `FOUNDRY_PROJECT_ENDPOINT`,
+`AZURE_AI_MODEL_DEPLOYMENT_NAME`, and `APPLICATIONINSIGHTS_CONNECTION_STRING`
+automatically; `AZURE_SEARCH_ENDPOINT` and `AZURE_SEARCH_KNOWLEDGE_BASE_NAME` are set
+directly in `azure.yaml`'s `env:` block for this service.
+
+After deploying, check status and logs:
+
+```bash
+azd ai agent show agent-framework-agent-knowledge-base-responses
+azd ai agent monitor
+```
+
+The deployed agent's Managed Identity needs the RBAC roles listed under
+[Prerequisites](#prerequisites) on `aiservices426nsearch` — grant them once per new
+agent version's identity if `azd ai agent show` reports a new `Instance Identity
+Principal ID`.
